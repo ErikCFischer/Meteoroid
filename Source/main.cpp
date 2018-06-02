@@ -75,16 +75,8 @@ int main() {
 	text.setCharacterSize(16);
 	text.setFillColor(sf::Color::White);
 
-	sf::Text eot_text;
-	eot_text.setFont(font);
-	eot_text.setCharacterSize(16);
-	eot_text.setFillColor(sf::Color::White);
-	eot_text.setPosition(0.f, 720.f - 20.f);
-
-	sf::Text time_text;
-	time_text.setFont(font);
-	time_text.setCharacterSize(16);
-	time_text.setFillColor(sf::Color::White);
+	vector<sf::Text> archive;
+	int arch = -1;
 
 	sf::RectangleShape carrot(sf::Vector2f(2,20));
 
@@ -93,15 +85,14 @@ int main() {
 	float cb = 0;
 	uint64_t cp = str.getSize();
 	table_output x;
-
-	bool show_table = false;
+	x.column_name.clear();
+	x.column_data.clear();
+	x.max_column_width.clear();
 
 	while (window.isOpen()) {
 
 		time = clock.restart();
 		cb += time.asSeconds() * 2;
-		time_text.setString(to_string(cb).substr(0, int( log(cb)/log(10) ) + 5));
-		time_text.setPosition(1280.f - ((int(log(cb)/log(10)) + 5) * 8), 0);
 
 		if(int(cb) % 2) {
 			carrot.setFillColor(sf::Color::White);
@@ -128,6 +119,22 @@ int main() {
 			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right) && cp < str.getSize()) {
 				cp++;
 			}
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Up) && arch+1 < archive.size()) {
+				arch++;
+				str = archive[arch].getString();
+				cp = str.getSize();
+				text.setString(str);
+			}
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Down) && arch >= 0) {
+				arch--;
+				if(arch == -1) {
+					str = "";
+				} else {
+					str = archive[arch].getString();
+				}
+				cp = str.getSize();
+				text.setString(str);
+			}
 
 			if (event.type == sf::Event::TextEntered) {
 				uint8_t te = event.text.unicode;
@@ -145,10 +152,11 @@ int main() {
 
 				} else if(te == 13) {
 
-					str.insert(cp, "\n");
-					cp++;
-					cb = 1;
 					if(str.substring(0,5) == "SQL: ") {
+
+						x.column_name.clear();
+						x.column_data.clear();
+						x.max_column_width.clear();
 
 						rc = sqlite3_exec(db, str.substring(5).toAnsiString().c_str(), callback, &x, &zErrMsg);
 					    if( rc!=SQLITE_OK ) {
@@ -156,9 +164,14 @@ int main() {
 					    	sqlite3_free(zErrMsg);
 						}
 
-						show_table = true;
-
 					}
+
+					str = "";
+					arch = -1;
+					cp = 0;
+					cb = 1;
+					archive.insert(archive.begin(), text);
+					text.move(0,20);
 
 
 				}
@@ -170,40 +183,41 @@ int main() {
 		carrot.setPosition(text.findCharacterPos(cp));
 
 		window.clear();
+		for(int i = 0; i < archive.size(); i++) {
+			window.draw(archive[i]);
+		}
 		window.draw(text);
-		window.draw(time_text);
-		window.draw(eot_text);
 		window.draw(carrot);
-		if(show_table) {
-			size_t total_row_width = 0;
-			for(int i = 0; i < x.column_name.size(); i++) {
-				sf::RectangleShape rec(sf::Vector2f(x.max_column_width[i]*8 + 8,24));
-				rec.setPosition(sf::Vector2f(640 + total_row_width, 10));
+
+		size_t total_row_width = 0;
+		for(int i = 0; i < x.column_name.size(); i++) {
+			sf::RectangleShape rec(sf::Vector2f(x.max_column_width[i]*8 + 8,24));
+			rec.setPosition(sf::Vector2f(640 + total_row_width, 10));
+			rec.setFillColor(sf::Color::Black);
+			rec.setOutlineThickness(1);
+			rec.setOutlineColor(sf::Color::White);
+			window.draw(rec);
+			sf::Text col_text(x.column_name[i], font, 16);
+			col_text.setPosition(640 + total_row_width + 4, 12);
+			window.draw(col_text);
+			total_row_width += x.max_column_width[i]*8 + 8;
+		}
+		for(int i = 0; i < x.column_data.size(); i++) {
+			total_row_width = 0;
+			for(int j = 0; j < x.column_name.size(); j++) {
+				sf::RectangleShape rec(sf::Vector2f(x.max_column_width[j]*8 + 8,24));
+				rec.setPosition(sf::Vector2f(640 + total_row_width, 34 + 24*i));
 				rec.setFillColor(sf::Color::Black);
 				rec.setOutlineThickness(1);
 				rec.setOutlineColor(sf::Color::White);
 				window.draw(rec);
-				sf::Text col_text(x.column_name[i], font, 16);
-				col_text.setPosition(640 + total_row_width + 4, 12);
+				sf::Text col_text(x.column_data[i][j], font, 16);
+				col_text.setPosition(640 + total_row_width + 4, 34 + 24*i + 2);
 				window.draw(col_text);
-				total_row_width += x.max_column_width[i]*8 + 8;
-			}
-			for(int i = 0; i < x.column_data.size(); i++) {
-				total_row_width = 0;
-				for(int j = 0; j < x.column_name.size(); j++) {
-					sf::RectangleShape rec(sf::Vector2f(x.max_column_width[j]*8 + 8,24));
-					rec.setPosition(sf::Vector2f(640 + total_row_width, 34 + 24*i));
-					rec.setFillColor(sf::Color::Black);
-					rec.setOutlineThickness(1);
-					rec.setOutlineColor(sf::Color::White);
-					window.draw(rec);
-					sf::Text col_text(x.column_data[i][j], font, 16);
-					col_text.setPosition(640 + total_row_width + 4, 34 + 24*i + 2);
-					window.draw(col_text);
-					total_row_width += x.max_column_width[j]*8 + 8;
-				}
+				total_row_width += x.max_column_width[j]*8 + 8;
 			}
 		}
+
 		window.display();
 
 	}
