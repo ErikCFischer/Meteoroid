@@ -8,11 +8,12 @@ HP = .\Headers
 
 INCLUDE_PATH = /I$(SFML_PATH)\include /I$(SQLITE_PATH) /I$(CPP_PATH)\include /I$(WINC_PATH)\ucrt /IHeaders
 
-LIB_PATH = /LIBPATH:$(SFML_PATH)\lib /LIBPATH:$(WLIB_PATH)\um\x64 /LIBPATH:$(WLIB_PATH)\ucrt\x64 /LIBPATH:$(CPP_PATH)\lib\x64
+LIB_PATH = /LIBPATH:$(SFML_PATH)\lib /LIBPATH:$(WLIB_PATH)\um\x64 /LIBPATH:$(WLIB_PATH)\ucrt\x64 /LIBPATH:$(CPP_PATH)\lib\x64 /LIBPATH:$(SQLITE_PATH)
 
 WINDOW_APP = /subsystem:windows /entry:mainCRTStartup
 
 LIBS = user32.lib Advapi32.lib \
+sqlite3.lib \
 winmm.lib \
 sfml-system-s.lib \
 ws2_32.lib \
@@ -21,11 +22,11 @@ openal32.lib flac.lib vorbisenc.lib vorbisfile.lib vorbis.lib ogg.lib \
 sfml-audio-s.lib \
 opengl32.lib gdi32.lib \
 sfml-window-s.lib \
-freetype.lib jpeg.lib \
+freetype.lib \
 sfml-graphics-s.lib
 
 INCLUDES = $(SP)\main.cpp
 
 .\bin\Meteoroid.exe: makefile \
 $(SP)\main.cpp
-	cl /EHsc /MT $(INCLUDE_PATH) /Fo.\obj\ /DSFML_STATIC $(INCLUDES) /link $(LIB_PATH) $(LIBS) $(SQLITE_PATH)\sqlite3 /out:bin\Meteoroid.exe
+	cl /EHsc /MT /Fo.\obj\ /DSFML_STATIC $(INCLUDE_PATH) $(INCLUDES)  /link $(LIB_PATH) $(LIBS) /out:bin\Meteoroid.exe
