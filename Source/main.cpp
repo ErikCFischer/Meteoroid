@@ -1,38 +1,41 @@
 #include <iostream>
 #include <vector>
-#include <math.h>
 #include <string>
+
 #include <stdio.h>
+#include <math.h>
+
 #include <sqlite3.h>
 
 #include <SFML/Graphics.hpp>
 
 using namespace std;
 
-struct table_output {
+struct sql_table_s {
 	vector<string> column_name;
 	vector<vector<string>> column_data;
 	vector<size_t> max_column_width;
 };
 
-static int callback(void *t_o_p, int col_count, char **col_data, char **col_name) {
+static int callback(void *table_output, int col_count, char **col_data, char **col_name) {
 
-	table_output *out = static_cast<table_output*>(t_o_p);
+	sql_table_s *out = static_cast<sql_table_s*>(table_output);
+
 	if( !(*out).column_name.size() ) {
-		for(int i = 0; i < col_count; i++) {
-			(*out).column_name.push_back(col_name[i]);
-			(*out).max_column_width.push_back(strlen(col_name[i]));
+		for(int col = 0; col < col_count; col++) {
+			(*out).column_name.push_back(col_name[col]);
+			(*out).max_column_width.push_back(strlen(col_name[col]));
 		}
 	}
 
-	vector<string> r;
-	for(int i = 0; i < col_count; i++) {
-		r.push_back(col_data[i]);
-		if(strlen(col_data[i]) > (*out).max_column_width[i]) {
-			(*out).max_column_width[i] = strlen(col_data[i]);
+	vector<string> row_data;
+	for(int col = 0; col < col_count; col++) {
+		row_data.push_back(col_data[col]);
+		if((*out).max_column_width[col] < strlen(col_data[col])) {
+			(*out).max_column_width[col] = strlen(col_data[col]);
 		}
 	}
-	(*out).column_data.push_back(r);
+	(*out).column_data.push_back(row_data);
 
 	return 0;
 }
@@ -44,20 +47,20 @@ int main() {
 
 	sf::Clock clock;
 
-    sqlite3 *db;
-    char *zErrMsg = 0;
-    int rc;
+	sqlite3 *db;
+	char *sql_err = 0;
+	int sql_status;
 
-    rc = sqlite3_open("test.db", &db);
+	sql_status = sqlite3_open("test.db", &db);
 
-    if( rc ) {
+	if( sql_status ) {
 
-    	printf("Can't open database: %s\n", sqlite3_errmsg(db));
-    	return 1;
+		printf("Can't open database: %s\n", sqlite3_errmsg(db));
+		return 1;
 
 	} else {
 
-	   printf("Opened database successfully\n");
+		printf("Opened database successfully\n");
 
 	}
 
@@ -68,38 +71,38 @@ int main() {
 		cout << "Error loading font" << endl;
 	}
 
-	sf::Text text;
-	sf::String str = "";
-	text.setFont(font);
-	text.setString(str);
-	text.setCharacterSize(16);
-	text.setFillColor(sf::Color::White);
+	sf::Text user_text;
+	sf::String user_string = "";
+	user_text.setFont(font);
+	user_text.setString(user_string);
+	user_text.setCharacterSize(16);
+	user_text.setFillColor(sf::Color::White);
 
-	vector<sf::Text> archive;
-	int arch = -1;
+	vector<sf::Text> text_archive;
+	int selected_archive = -1;
 
 	sf::RectangleShape carrot(sf::Vector2f(2,20));
 
 	sf::Time time;
 
-	float cb = 0;
-	uint64_t cp = str.getSize();
-	table_output x;
-	x.column_name.clear();
-	x.column_data.clear();
-	x.max_column_width.clear();
+	float carrot_blink_timer = 0;
+	uint64_t carrot_position = user_string.getSize();
+	sql_table_s table_output;
+	table_output.column_name.clear();
+	table_output.column_data.clear();
+	table_output.max_column_width.clear();
 
 	while (window.isOpen()) {
 
 		time = clock.restart();
-		cb += time.asSeconds() * 2;
+		carrot_blink_timer += time.asSeconds() * 2;
 
-		if(int(cb) % 2) {
+		if(int(carrot_blink_timer) % 2) {
 			carrot.setFillColor(sf::Color::White);
 		} else {
 			carrot.setFillColor(sf::Color::Transparent);
-			if(cb >= 2) {
-				cb = 0;
+			if(carrot_blink_timer >= 2) {
+				carrot_blink_timer = 0;
 			}
 		}
 
@@ -113,108 +116,115 @@ int main() {
 
 			}
 
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Left) && cp) {
-				cp--;
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Left) && carrot_position) {
+				carrot_position--;
 			}
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right) && cp < str.getSize()) {
-				cp++;
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right) && carrot_position < user_string.getSize()) {
+				carrot_position++;
 			}
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Up) && arch+1 < archive.size()) {
-				arch++;
-				str = archive[arch].getString();
-				cp = str.getSize();
-				text.setString(str);
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Up) && selected_archive+1 < text_archive.size()) {
+				selected_archive++;
+				user_string = text_archive[selected_archive].getString();
+				carrot_position = user_string.getSize();
+				user_text.setString(user_string);
 			}
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Down) && arch >= 0) {
-				arch--;
-				if(arch == -1) {
-					str = "";
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Down) && selected_archive >= 0) {
+				selected_archive--;
+				if(selected_archive == -1) {
+					user_string = "";
 				} else {
-					str = archive[arch].getString();
+					user_string = text_archive[selected_archive].getString();
 				}
-				cp = str.getSize();
-				text.setString(str);
+				carrot_position = user_string.getSize();
+				user_text.setString(user_string);
 			}
 
 			if (event.type == sf::Event::TextEntered) {
-				uint8_t te = event.text.unicode;
-			    if (31 < te && te < 128) {
+				uint8_t user_input = event.text.unicode;
+				if (31 < user_input && user_input < 128) {
 
-					str.insert(cp, static_cast<char>(event.text.unicode));
-					cp++;
-					cb = 1;
+					user_string.insert(carrot_position, static_cast<char>(user_input));
+					carrot_position++;
+					carrot_blink_timer = 1;
 
-				} else if(te == 8 && str.getSize()) {
+				} else if(user_input == 8 && user_string.getSize()) {
 
-					str.erase(cp-1, 1);
-					cp--;
-					cb = 1;
+					user_string.erase(carrot_position-1, 1);
+					carrot_position--;
+					carrot_blink_timer = 1;
 
-				} else if(te == 13) {
+				} else if(user_input == 13) {
 
-					if(str.substring(0,5) == "SQL: ") {
+					if(user_string.substring(0,5) == "SQL: ") {
 
-						x.column_name.clear();
-						x.column_data.clear();
-						x.max_column_width.clear();
+						table_output.column_name.clear();
+						table_output.column_data.clear();
+						table_output.max_column_width.clear();
 
-						rc = sqlite3_exec(db, str.substring(5).toAnsiString().c_str(), callback, &x, &zErrMsg);
-					    if( rc!=SQLITE_OK ) {
-							printf("SQL error: %s\n", zErrMsg);
-					    	sqlite3_free(zErrMsg);
+						sql_status = sqlite3_exec(
+							db,
+							user_string.substring(5).toAnsiString().c_str(),
+							callback,
+							&table_output,
+							&sql_err);
+						if( sql_status!=SQLITE_OK ) {
+							printf("SQL error: %s\n", sql_err);
+							sqlite3_free(sql_err);
 						}
 
 					}
 
-					str = "";
-					arch = -1;
-					cp = 0;
-					cb = 1;
-					archive.insert(archive.begin(), text);
-					text.move(0,20);
+					user_string = "";
+					selected_archive = -1;
+					carrot_position = 0;
+					carrot_blink_timer = 1;
+					text_archive.insert(text_archive.begin(), user_text);
+					user_text.move(0,20);
 
 
 				}
-				text.setString(str);
+				user_text.setString(user_string);
 			}
 
 		}
 
-		carrot.setPosition(text.findCharacterPos(cp));
+		carrot.setPosition(user_text.findCharacterPos(carrot_position));
 
 		window.clear();
-		for(int i = 0; i < archive.size(); i++) {
-			window.draw(archive[i]);
+
+		for(int i = 0; i < text_archive.size(); i++) {
+			window.draw(text_archive[i]);
 		}
-		window.draw(text);
+
+		window.draw(user_text);
 		window.draw(carrot);
 
 		size_t total_row_width = 0;
-		for(int i = 0; i < x.column_name.size(); i++) {
-			sf::RectangleShape rec(sf::Vector2f(x.max_column_width[i]*8 + 8,24));
-			rec.setPosition(sf::Vector2f(640 + total_row_width, 10));
-			rec.setFillColor(sf::Color::Black);
-			rec.setOutlineThickness(1);
-			rec.setOutlineColor(sf::Color::White);
-			window.draw(rec);
-			sf::Text col_text(x.column_name[i], font, 16);
-			col_text.setPosition(640 + total_row_width + 4, 12);
-			window.draw(col_text);
-			total_row_width += x.max_column_width[i]*8 + 8;
+		for(int col = 0; col < table_output.column_name.size(); col++) {
+			sf::RectangleShape table_cell(sf::Vector2f(table_output.max_column_width[col]*8 + 8,24));
+			table_cell.setPosition(sf::Vector2f(640 + total_row_width, 10));
+			table_cell.setFillColor(sf::Color::Black);
+			table_cell.setOutlineThickness(1);
+			table_cell.setOutlineColor(sf::Color::White);
+			window.draw(table_cell);
+			sf::Text cell_text(table_output.column_name[col], font, 16);
+			cell_text.setPosition(640 + total_row_width + 4, 12);
+			window.draw(cell_text);
+			total_row_width += table_output.max_column_width[col]*8 + 8;
 		}
-		for(int i = 0; i < x.column_data.size(); i++) {
+		for(int row = 0; row < table_output.column_data.size(); row++) {
 			total_row_width = 0;
-			for(int j = 0; j < x.column_name.size(); j++) {
-				sf::RectangleShape rec(sf::Vector2f(x.max_column_width[j]*8 + 8,24));
-				rec.setPosition(sf::Vector2f(640 + total_row_width, 34 + 24*i));
-				rec.setFillColor(sf::Color::Black);
-				rec.setOutlineThickness(1);
-				rec.setOutlineColor(sf::Color::White);
-				window.draw(rec);
-				sf::Text col_text(x.column_data[i][j], font, 16);
-				col_text.setPosition(640 + total_row_width + 4, 34 + 24*i + 2);
-				window.draw(col_text);
-				total_row_width += x.max_column_width[j]*8 + 8;
+			for(int col = 0; col < table_output.column_name.size(); col++) {
+				sf::RectangleShape table_cell(sf::Vector2f(table_output.max_column_width[col]*8 + 8,24));
+				table_cell.setPosition(sf::Vector2f(640 + total_row_width, 34 + 24*row));
+				table_cell.setFillColor(sf::Color::Black);
+				table_cell.setOutlineThickness(1);
+				table_cell.setOutlineColor(sf::Color::White);
+				window.draw(table_cell);
+				sf::Text cell_text(table_output.column_data[row][col], font, 16);
+				cell_text.setPosition(640 + total_row_width + 4, 34 + 24*row + 2);
+				window.draw(cell_text);
+				total_row_width += table_output.max_column_width[col]*8 + 8;
 			}
 		}
 
@@ -222,29 +232,6 @@ int main() {
 
 	}
 
-/*
+	return 0;
 
-	std::string input;
-    for(;;) {
-		cout << "Enter Command: ";
-	    getline(cin, input);
-
-		if(input == "exit") break;
-
-		int zero = 0;
-
-	    rc = sqlite3_exec(db, input.c_str(), callback, &zero, &zErrMsg);
-
-	    if( rc!=SQLITE_OK ) {
-			printf("SQL error: %s\n", zErrMsg);
-	    	sqlite3_free(zErrMsg);
-		}
-
-
-    }
-	cout << "goodbye";
-
-	cin.get();
-*/
-    return 0;
 }
