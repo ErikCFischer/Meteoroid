@@ -20,9 +20,117 @@ struct sql_table_s {
 	std::vector<size_t> max_column_width;
 };
 
-static int callback(void *table_output, int col_count, char **col_data, char **col_name) {
 
-	sql_table_s *out = static_cast<sql_table_s*>(table_output);
+
+namespace md {
+
+	enum class Type {Folder, Group, File, DNE};
+
+	class MeteoroidObject {
+		protected:
+			md::MeteoroidObject* parent = nullptr;
+
+			MeteoroidObject() {}
+			MeteoroidObject(md::MeteoroidObject* set_parent) : parent(set_parent) {}
+			MeteoroidObject(std::string set_name) : name(set_name) {}
+			MeteoroidObject(md::MeteoroidObject* set_parent, std::string set_name) : parent(set_parent), name(set_name) {}
+		public:
+			std::string name;
+
+			virtual md::Type getType() = 0;
+
+			virtual md::Type getParentType() {
+				if(parent == nullptr) {
+					return md::Type::DNE;
+				} else {
+					return parent->getType();
+				}
+			}
+
+			virtual void setParent(md::MeteoroidObject* set_parent) {
+				parent = set_parent;
+			}
+
+	};
+
+	class Folder: public md::MeteoroidObject {
+		private:
+			std::vector<md::MeteoroidObject*> children;
+		public:
+			Folder() {}
+			Folder(md::Folder* set_parent) : MeteoroidObject(set_parent) {}
+			Folder(std::string set_name) : MeteoroidObject(set_name) {}
+			Folder(md::Folder* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
+
+			int operator+=(md::MeteoroidObject* new_obj) {
+				if(new_obj->getType() == md::Type::DNE) {
+					return 0;
+				}
+				children.push_back(new_obj);
+				new_obj->setParent(this);
+				return 1;
+			}
+
+			md::Type getType() override {
+				return md::Type::Folder;
+			}
+	};
+
+	class Group: public md::MeteoroidObject {
+		private:
+			std::vector<md::MeteoroidObject*> children;
+		public:
+			Group() {}
+			Group(md::Folder* set_parent) : MeteoroidObject(set_parent) {}
+			Group(md::Group* set_parent) : MeteoroidObject(set_parent) {}
+			Group(std::string set_name) : MeteoroidObject(set_name) {}
+			Group(md::Folder* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
+			Group(md::Group* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
+
+			int operator+=(md::MeteoroidObject* new_obj) {
+				if(new_obj->getType() == md::Type::DNE || new_obj->getType() == md::Type::Folder) {
+					return 0;
+				}
+				children.push_back(new_obj);
+				new_obj->setParent(this);
+				return 1;
+			}
+
+			md::Type getType() override {
+				return md::Type::Group;
+			}
+
+	};
+
+	class File: public md::MeteoroidObject {
+		private:
+			fs::path file_path;
+		public:
+			File() {}
+			File(md::Folder* set_parent) : MeteoroidObject(set_parent) {}
+			File(md::Group* set_parent) : MeteoroidObject(set_parent) {}
+			File(std::string set_name) : MeteoroidObject(set_name) {}
+			File(md::Folder* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
+			File(md::Group* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
+
+			md::Type getType() override {
+				return md::Type::File;
+			}
+
+			File* setFilePath(fs::path set_file_path) {
+				file_path = set_file_path;
+				return this;
+			}
+
+	};
+
+}
+
+
+
+static int callback(void* table_output, int col_count, char** col_data, char** col_name) {
+
+	sql_table_s* out = static_cast<sql_table_s*>(table_output);
 
 	if( !(*out).column_name.size() ) {
 		for(int col = 0; col < col_count; col++) {
@@ -43,7 +151,13 @@ static int callback(void *table_output, int col_count, char **col_data, char **c
 	return 0;
 }
 
+
+
 int main() {
+
+	md::Folder top_level_folder("main");
+	top_level_folder.getParentType();
+
 
 	sf::RenderWindow window(sf::VideoMode(1280, 720), "Meteoroid");
 	window.setVerticalSyncEnabled(true);
@@ -51,8 +165,8 @@ int main() {
 
 	sf::Clock clock;
 
-	sqlite3 *db;
-	char *sql_err = 0;
+	sqlite3* db;
+	char* sql_err = 0;
 	int sql_status;
 
 	sql_status = sqlite3_open("test.db", &db);
