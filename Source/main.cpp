@@ -131,6 +131,8 @@ int main() {
 	table_output.max_column_width.clear();
 
 	uint8_t output_format = 3;
+	uint8_t context_menu = 0;
+	sf::Vector2f context_menu_pos;
 
 	bool path_updated = true;
 
@@ -203,62 +205,67 @@ int main() {
 			}
 
 			if(event.type == sf::Event::MouseButtonPressed) {
+				if(event.mouseButton.button == sf::Mouse::Left) {
+					context_menu = 0;
+					for(auto & path_text : current_path_text) {
+						if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
 
-				for(auto & path_text : current_path_text) {
-					if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-
-						if(current_path_text.back().getString() == current_path.root_name().string()) {
-							for(int i = 0; i < 26; i++) {
-								std::string drive_letter = "";
-								drive_letter += char('A' + i);
-								drive_letter += ":";
-								if( fs::exists(fs::path(drive_letter)) ) {
-									available_drives_text.emplace_back(drive_letter, font, 16);
-									available_drives_text.back().setPosition(0, 24*available_drives_text.size());
-									available_drives_text.back().setOutlineColor(sf::Color::Blue);
+							if(current_path_text.back().getString() == current_path.root_name().string()) {
+								for(int i = 0; i < 26; i++) {
+									std::string drive_letter = "";
+									drive_letter += char('A' + i);
+									drive_letter += ":";
+									if( fs::exists(fs::path(drive_letter)) ) {
+										available_drives_text.emplace_back(drive_letter, font, 16);
+										available_drives_text.back().setPosition(0, 24*available_drives_text.size());
+										available_drives_text.back().setOutlineColor(sf::Color::Blue);
+									}
 								}
+								available_files_text.clear();
+								break;
 							}
-							available_files_text.clear();
-							break;
-						}
 
-						while(current_path_text.back().getString() != path_text.getString()) {
-							current_path.remove_filename();
-							current_path_text.pop_back();
-						}
-						path_updated = true;
+							while(current_path_text.back().getString() != path_text.getString()) {
+								current_path.remove_filename();
+								current_path_text.pop_back();
+							}
+							path_updated = true;
 
-					}
-				}
-				for(auto & file_text : available_files_text) {
-					if(file_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						current_path /= fs::path(std::string(file_text.getString()));
-						path_updated = true;
-					}
-				}
-				for(auto & drive_text : available_drives_text) {
-					if(drive_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						current_path = fs::path(std::string(drive_text.getString()) + "/");
-						available_drives_text.clear();
-						path_updated = true;
-					}
-				}
-				for(auto & path_text : virtual_path_text) {
-					if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						while(virtual_path_text.back().getString() != path_text.getString()) {
-							current_item = current_item->getParent();
-							virtual_path_text.pop_back();
 						}
-						path_updated = true;
 					}
-				}
-				for(auto & item_text : virtual_item_text) {
-					if(item_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						if(md::Container* current_container = dynamic_cast<md::Container*>(current_item)) {
-							current_item = current_container->at(int(item_text.getPosition().y) / 24 - 1);
+					for(auto & file_text : available_files_text) {
+						if(file_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+							current_path /= fs::path(std::string(file_text.getString()));
+							path_updated = true;
 						}
-						path_updated = true;
 					}
+					for(auto & drive_text : available_drives_text) {
+						if(drive_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+							current_path = fs::path(std::string(drive_text.getString()) + "/");
+							available_drives_text.clear();
+							path_updated = true;
+						}
+					}
+					for(auto & path_text : virtual_path_text) {
+						if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+							while(virtual_path_text.back().getString() != path_text.getString()) {
+								current_item = current_item->getParent();
+								virtual_path_text.pop_back();
+							}
+							path_updated = true;
+						}
+					}
+					for(auto & item_text : virtual_item_text) {
+						if(item_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+							if(md::Container* current_container = dynamic_cast<md::Container*>(current_item)) {
+								current_item = current_container->at(int(item_text.getPosition().y) / 24 - 1);
+							}
+							path_updated = true;
+						}
+					}
+				} else if (event.mouseButton.button == sf::Mouse::Right) {
+					context_menu = 1;
+					context_menu_pos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 				}
 
 			}
@@ -515,6 +522,51 @@ int main() {
 			for (auto item_text : virtual_item_text) {
 				window.draw(item_text);
 			}
+
+		}
+
+		if(context_menu == 1) {
+
+			std::vector<sf::Text> menu_item_text;
+			std::vector<sf::RectangleShape> menu_item;
+			size_t largest_width = 0;
+
+			menu_item_text.emplace_back("New Folder", font, 16);
+			menu_item_text.back().setPosition(sf::Vector2f(context_menu_pos.x + 4, context_menu_pos.y + 24*0 + 2));
+			menu_item_text.back().setFillColor(sf::Color(0x00, 0x00, 0x00));
+			if(largest_width < menu_item_text.back().getGlobalBounds().width + 8)
+				largest_width = menu_item_text.back().getGlobalBounds().width + 8;
+
+			menu_item_text.emplace_back("New Group", font, 16);
+			menu_item_text.back().setPosition(sf::Vector2f(context_menu_pos.x + 4, context_menu_pos.y + 24*1 + 2));
+			menu_item_text.back().setFillColor(sf::Color(0x00, 0x00, 0x00));
+			if(largest_width < menu_item_text.back().getGlobalBounds().width + 8)
+				largest_width = menu_item_text.back().getGlobalBounds().width + 8;
+
+			menu_item_text.emplace_back("Add File", font, 16);
+			menu_item_text.back().setPosition(sf::Vector2f(context_menu_pos.x + 4, context_menu_pos.y + 24*2 + 2));
+			menu_item_text.back().setFillColor(sf::Color(0x00, 0x00, 0x00));
+			if(largest_width < menu_item_text.back().getGlobalBounds().width + 8)
+				largest_width = menu_item_text.back().getGlobalBounds().width + 8;
+
+
+			for(int i = 0; i < menu_item_text.size(); i++) {
+				menu_item.emplace_back(sf::Vector2f(largest_width, 24));
+				menu_item.back().setPosition(sf::Vector2f(context_menu_pos.x, context_menu_pos.y + 24*i));
+				menu_item.back().setFillColor(sf::Color(0xC0, 0xC0, 0xC0));
+				if(menu_item.back().getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+					menu_item.back().setFillColor(sf::Color(0xA0, 0xA0, 0xFF));
+				}
+				menu_item.back().setOutlineColor(sf::Color(0x80, 0x80, 0x80));
+				menu_item.back().setOutlineThickness(1);
+			}
+
+			for(auto & item : menu_item)
+				window.draw(item);
+			for(auto & item_text : menu_item_text)
+				window.draw(item_text);
+
+
 
 		}
 
