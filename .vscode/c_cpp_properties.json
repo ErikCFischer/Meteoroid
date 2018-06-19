@@ -11,7 +11,9 @@
             "includePath": [
                 "${workspaceFolder}",
 				"F:/C++/lib/SFML/include",
-				"F:/C++/lib/SQLite"
+                "F:/C++/lib/SQLite",
+                "${workspaceFolder}/Headers",
+                "${workspaceFolder}/Source"
             ],
             "defines": [
                 "_DEBUG",

@@ -11,122 +11,20 @@
 #include <sqlite3.h>
 //SFML
 #include <SFML/Graphics.hpp>
+//Local includes
+#include <md/Folder.hpp>
+#include <md/Group.hpp>
+#include <md/File.hpp>
 
+//File system library
 namespace fs = std::experimental::filesystem;
 
+//Struct to hold an SQL table
 struct sql_table_s {
 	std::vector<std::string> column_name;
 	std::vector<std::vector<std::string>> column_data;
 	std::vector<size_t> max_column_width;
 };
-
-
-
-namespace md {
-
-	enum class Type {Folder, Group, File, DNE};
-
-	class MeteoroidObject {
-		protected:
-			md::MeteoroidObject* parent = nullptr;
-
-			MeteoroidObject() {}
-			MeteoroidObject(md::MeteoroidObject* set_parent) : parent(set_parent) {}
-			MeteoroidObject(std::string set_name) : name(set_name) {}
-			MeteoroidObject(md::MeteoroidObject* set_parent, std::string set_name) : parent(set_parent), name(set_name) {}
-		public:
-			std::string name;
-
-			virtual md::Type getType() = 0;
-
-			virtual md::Type getParentType() {
-				if(parent == nullptr) {
-					return md::Type::DNE;
-				} else {
-					return parent->getType();
-				}
-			}
-
-			virtual void setParent(md::MeteoroidObject* set_parent) {
-				parent = set_parent;
-			}
-
-	};
-
-	class Folder: public md::MeteoroidObject {
-		private:
-			std::vector<md::MeteoroidObject*> children;
-		public:
-			Folder() {}
-			Folder(md::Folder* set_parent) : MeteoroidObject(set_parent) {}
-			Folder(std::string set_name) : MeteoroidObject(set_name) {}
-			Folder(md::Folder* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
-
-			int operator+=(md::MeteoroidObject* new_obj) {
-				if(new_obj->getType() == md::Type::DNE) {
-					return 0;
-				}
-				children.push_back(new_obj);
-				new_obj->setParent(this);
-				return 1;
-			}
-
-			md::Type getType() override {
-				return md::Type::Folder;
-			}
-	};
-
-	class Group: public md::MeteoroidObject {
-		private:
-			std::vector<md::MeteoroidObject*> children;
-		public:
-			Group() {}
-			Group(md::Folder* set_parent) : MeteoroidObject(set_parent) {}
-			Group(md::Group* set_parent) : MeteoroidObject(set_parent) {}
-			Group(std::string set_name) : MeteoroidObject(set_name) {}
-			Group(md::Folder* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
-			Group(md::Group* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
-
-			int operator+=(md::MeteoroidObject* new_obj) {
-				if(new_obj->getType() == md::Type::DNE || new_obj->getType() == md::Type::Folder) {
-					return 0;
-				}
-				children.push_back(new_obj);
-				new_obj->setParent(this);
-				return 1;
-			}
-
-			md::Type getType() override {
-				return md::Type::Group;
-			}
-
-	};
-
-	class File: public md::MeteoroidObject {
-		private:
-			fs::path file_path;
-		public:
-			File() {}
-			File(md::Folder* set_parent) : MeteoroidObject(set_parent) {}
-			File(md::Group* set_parent) : MeteoroidObject(set_parent) {}
-			File(std::string set_name) : MeteoroidObject(set_name) {}
-			File(md::Folder* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
-			File(md::Group* set_parent, std::string set_name) : MeteoroidObject(set_parent, set_name) {}
-
-			md::Type getType() override {
-				return md::Type::File;
-			}
-
-			File* setFilePath(fs::path set_file_path) {
-				file_path = set_file_path;
-				return this;
-			}
-
-	};
-
-}
-
-
 
 static int callback(void* table_output, int col_count, char** col_data, char** col_name) {
 
@@ -149,15 +47,40 @@ static int callback(void* table_output, int col_count, char** col_data, char** c
 	(*out).column_data.push_back(row_data);
 
 	return 0;
+
 }
-
-
 
 int main() {
 
-	md::Folder top_level_folder("main");
-	top_level_folder.getParentType();
+	md::Folder root("root");
+		md::Folder media("Media", &root);
+			md::Folder tv("TV", &media);
+				md::Group metal("Metalocalypse", &tv);
+					md::Group metal_s1("Season 1", &metal);
+						md::File metal_s1e1("Episode 1", &metal_s1);
+						md::File metal_s1e2("Episode 2", &metal_s1);
+						md::File metal_s1e3("Episode 3", &metal_s1);
+						md::File metal_s1e4("Episode 4", &metal_s1);
+						md::File metal_s1e5("Episode 5", &metal_s1);
+					md::Group metal_s2("Season 2", &metal);
+						md::File metal_s2e1("Episode 1", &metal_s2);
+						md::File metal_s2e2("Episode 2", &metal_s2);
+						md::File metal_s2e3("Episode 3", &metal_s2);
+						md::File metal_s2e4("Episode 4", &metal_s2);
+						md::File metal_s2e5("Episode 5", &metal_s2);
+			md::Folder movies("Movies", &media);
+				md::Group blade("Blade", &movies);
+					md::File blade1("Blade 1", &blade);
+					md::File blade2("Blade 2", &blade);
+					md::File blade3("Blade 3", &blade);
+				md::File django("Django", &movies);
+				md::File planet("Planet Terror", &movies);
+			md::Folder anime("Anime", &media);
+		md::Folder games("Games", &root);
 
+	md::MeteoroidObject* current_item = &root;
+	std::vector<sf::Text> virtual_path_text;
+	std::vector<sf::Text> virtual_item_text;
 
 	sf::RenderWindow window(sf::VideoMode(1280, 720), "Meteoroid");
 	window.setVerticalSyncEnabled(true);
@@ -207,7 +130,8 @@ int main() {
 	table_output.column_data.clear();
 	table_output.max_column_width.clear();
 
-	uint8_t output_format = 2;
+	uint8_t output_format = 3;
+
 	bool path_updated = true;
 
 	fs::path current_path = fs::current_path();
@@ -262,6 +186,20 @@ int main() {
 						drive_text.setOutlineThickness(0);
 					}
 				}
+				for(auto & path_text : virtual_path_text) {
+					if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+						path_text.setOutlineThickness(1);
+					} else if(path_text.getOutlineThickness() == 1) {
+						path_text.setOutlineThickness(0);
+					}
+				}
+				for(auto & item_text : virtual_item_text) {
+					if(item_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+						item_text.setOutlineThickness(1);
+					} else if(item_text.getOutlineThickness() == 1) {
+						item_text.setOutlineThickness(0);
+					}
+				}
 			}
 
 			if(event.type == sf::Event::MouseButtonPressed) {
@@ -302,6 +240,23 @@ int main() {
 					if(drive_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
 						current_path = fs::path(std::string(drive_text.getString()) + "/");
 						available_drives_text.clear();
+						path_updated = true;
+					}
+				}
+				for(auto & path_text : virtual_path_text) {
+					if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+						while(virtual_path_text.back().getString() != path_text.getString()) {
+							current_item = current_item->getParent();
+							virtual_path_text.pop_back();
+						}
+						path_updated = true;
+					}
+				}
+				for(auto & item_text : virtual_item_text) {
+					if(item_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+						if(md::Container* current_container = dynamic_cast<md::Container*>(current_item)) {
+							current_item = current_container->at(int(item_text.getPosition().y) / 24 - 1);
+						}
 						path_updated = true;
 					}
 				}
@@ -384,7 +339,8 @@ int main() {
 
 			if(event.type = sf::Event::MouseWheelScrolled) {
 
-				view.move(0, -event.mouseWheelScroll.delta * 24);
+				if(event.mouseWheelScroll.delta == 1 || event.mouseWheelScroll.delta == -1)
+					view.move(0, -event.mouseWheelScroll.delta * 24);
 
 			}
 
@@ -435,8 +391,59 @@ int main() {
 			}
 			for (int i = 0; i < available_files_text.size(); i++) {
 
-				available_files_text[i].setPosition(0, 24+ 24*i);
+				available_files_text[i].setPosition(0, 24 + 24*i);
 
+			}
+
+			path_updated = false;
+
+		}
+
+		if(output_format == 3 && path_updated) {
+
+			virtual_path_text.clear();
+			md::MeteoroidObject* temp_curr_item = current_item;
+			while(temp_curr_item) {
+				virtual_path_text.emplace(virtual_path_text.begin(), "/" + temp_curr_item->name(), font, 16);
+				
+				if(temp_curr_item->getType() == md::Type::Folder) {
+					virtual_path_text[0].setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
+					virtual_path_text[0].setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
+				} else if(temp_curr_item->getType() == md::Type::Group) {
+					virtual_path_text[0].setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
+					virtual_path_text[0].setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
+				} else if(temp_curr_item->getType() == md::Type::File) {
+					virtual_path_text[0].setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
+					virtual_path_text[0].setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
+				}
+				temp_curr_item = temp_curr_item->getParent();
+			}
+			for(int i = 1; i < virtual_path_text.size(); i++) {
+				virtual_path_text[i].setPosition(virtual_path_text[i - 1].findCharacterPos(-1));
+			}
+
+
+			virtual_item_text.clear();
+			if(md::Container* current_container = dynamic_cast<md::Container*>(current_item)) {
+				for (int i = 0; i < current_container->size(); i++) {
+
+					virtual_item_text.emplace_back(current_container->at(i)->name(), font, 16);
+					virtual_item_text.back().setPosition(sf::Vector2f(0, 24 + 24*i));
+
+					if(current_container->at(i)->getType() == md::Type::Folder) {
+						virtual_item_text.back().setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
+						virtual_item_text.back().setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
+					} else if(current_container->at(i)->getType() == md::Type::Group) {
+						virtual_item_text.back().setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
+						virtual_item_text.back().setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
+					} else if(current_container->at(i)->getType() == md::Type::File) {
+						virtual_item_text.back().setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
+						virtual_item_text.back().setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
+					}
+
+				}
+			} else {
+				std::cout << "File" << std::endl;
 			}
 
 			path_updated = false;
@@ -498,6 +505,16 @@ int main() {
 				window.draw(drive_text);
 			}
 
+
+		} else if(output_format == 3) {
+
+			for (auto path_text : virtual_path_text) {
+				window.draw(path_text);
+			}
+
+			for (auto item_text : virtual_item_text) {
+				window.draw(item_text);
+			}
 
 		}
 

@@ -25,8 +25,22 @@ sfml-window-s.lib \
 freetype.lib \
 sfml-graphics-s.lib
 
-INCLUDES = $(SP)\main.cpp
+INCLUDES = $(SP)\main.cpp \
+$(SP)\md\MeteoroidObject.cpp \
+$(SP)\md\Container.cpp \
+$(SP)\md\Executable.cpp \
+$(SP)\md\Folder.cpp \
+$(SP)\md\Group.cpp \
+$(SP)\md\File.cpp
+
+HEADERS = \
+$(HP)\md\MeteoroidObject.hpp \
+$(HP)\md\Container.hpp \
+$(HP)\md\Executable.hpp \
+$(HP)\md\Folder.hpp \
+$(HP)\md\Group.hpp \
+$(HP)\md\File.hpp
 
 .\bin\Meteoroid.exe: makefile \
-$(SP)\main.cpp
-	cl /EHsc /MT /Fo.\obj\ /DSFML_STATIC $(INCLUDE_PATH) $(INCLUDES)  /link $(LIB_PATH) $(LIBS) /out:bin\Meteoroid.exe
+$(INCLUDES) $(HEADERS)
+	cl /EHsc /MT /Fo.\obj\ /DSFML_STATIC $(INCLUDE_PATH) $(INCLUDES) /link $(LIB_PATH) $(LIBS) /out:bin\Meteoroid.exe
