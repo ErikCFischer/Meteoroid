@@ -1,15 +1,16 @@
 #pragma once
 
-#include <md/Executable.hpp>
+//C++17 Experimental Libraries
+#include <experimental/filesystem>
 
-#include <md/Folder.hpp>
-#include <md/Group.hpp>
+#include <md/Container.hpp>
 
 //File system library
 namespace fs = std::experimental::filesystem;
 
 namespace md {
-	class File: public md::Executable {
+	
+	class File: public md::MeteorItem {
 		private:
 			fs::path file_path;
 		public:
@@ -18,14 +19,18 @@ namespace md {
 			File(std::string, fs::path);
 			File(std::string, md::Container*);
 			File(std::string, fs::path, md::Container*);
+			virtual ~File();
 
-			md::Type getType() override;
+			int setParent(md::Container*) override;
+
+			md::Type getParentType() override;
+
+			uint8_t getParentTypeVal() override;
 
 			int setFilePath(fs::path);
 
-			int setParent(md::MeteoroidObject*) override;
-
-			void run() override;
+			void run();
 
 	};
+
 }

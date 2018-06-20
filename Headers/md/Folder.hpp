@@ -3,19 +3,19 @@
 #include <md/Container.hpp>
 
 namespace md {
+
 	class Folder: public md::Container {
 		public:
 			Folder();
 			Folder(std::string);
 			Folder(std::string, md::Folder*);
+			virtual ~Folder();
 
-			//Folder can contain any kind of Object
-			int add(md::MeteoroidObject*) override;
+			int setParent(md::Container*) override;
 
-			//Get Type
-			md::Type getType() override;
+			int add(md::MeteorItem*) override;
 
-			//Folders can only be children of parents
-			int setParent(md::MeteoroidObject*) override;
+
 	};
+
 }

@@ -13,7 +13,7 @@
 #include <SFML/Graphics.hpp>
 //Local includes
 #include <md/Folder.hpp>
-#include <md/Group.hpp>
+#include <md/Playlist.hpp>
 #include <md/File.hpp>
 
 //File system library
@@ -50,26 +50,33 @@ static int callback(void* table_output, int col_count, char** col_data, char** c
 
 }
 
+bool hovered(sf::Text&, sf::RenderWindow&);
+bool hovered(sf::Shape&, sf::RenderWindow&);
+void outlineOnHover(sf::Text&, sf::RenderWindow&);
+void outlineOnHover(std::vector<sf::Text>&, sf::RenderWindow&);
+
 int main() {
 
-	md::Folder root("root");
+	md::Folder root("/");
 		md::Folder media("Media", &root);
 			md::Folder tv("TV", &media);
-				md::Group metal("Metalocalypse", &tv);
-					md::Group metal_s1("Season 1", &metal);
-						md::File metal_s1e1("Episode 1", &metal_s1);
-						md::File metal_s1e2("Episode 2", &metal_s1);
-						md::File metal_s1e3("Episode 3", &metal_s1);
-						md::File metal_s1e4("Episode 4", &metal_s1);
-						md::File metal_s1e5("Episode 5", &metal_s1);
-					md::Group metal_s2("Season 2", &metal);
+				md::Playlist metal("Metalocalypse", &tv);
+					md::Playlist metal_s1("Season 1", &metal);
+						std::vector<md::File> metal_s1f(9);
+						for(int i = 0; i < metal_s1f.size(); i++) {
+							std::string ep_name = "Episode 1";
+							ep_name[8] += i;
+							metal_s1f[i].setName(ep_name);
+							metal_s1f[i].setParent(&metal_s1);
+						}
+					md::Playlist metal_s2("Season 2", &metal);
 						md::File metal_s2e1("Episode 1", &metal_s2);
 						md::File metal_s2e2("Episode 2", &metal_s2);
 						md::File metal_s2e3("Episode 3", &metal_s2);
 						md::File metal_s2e4("Episode 4", &metal_s2);
 						md::File metal_s2e5("Episode 5", &metal_s2);
 			md::Folder movies("Movies", &media);
-				md::Group blade("Blade", &movies);
+				md::Playlist blade("Blade", &movies);
 					md::File blade1("Blade 1", &blade);
 					md::File blade2("Blade 2", &blade);
 					md::File blade3("Blade 3", &blade);
@@ -78,9 +85,9 @@ int main() {
 			md::Folder anime("Anime", &media);
 		md::Folder games("Games", &root);
 
-	md::MeteoroidObject* current_item = &root;
-	std::vector<sf::Text> virtual_path_text;
-	std::vector<sf::Text> virtual_item_text;
+	md::MeteorItem* current_item_md = &root;
+	std::vector<sf::Text> path_md_txt_vctr;
+	std::vector<sf::Text> item_md_txt_vctr;
 
 	sf::RenderWindow window(sf::VideoMode(1280, 720), "Meteoroid");
 	window.setVerticalSyncEnabled(true);
@@ -136,11 +143,11 @@ int main() {
 
 	bool path_updated = true;
 
-	fs::path current_path = fs::current_path();
-	std::vector<sf::Text> current_path_text;
+	fs::path current_path_fs = fs::current_path();
+	std::vector<sf::Text> path_fs_txt_vctr;
 
-	std::vector<sf::Text> available_files_text;
-	std::vector<sf::Text> available_drives_text;
+	std::vector<sf::Text> item_fs_txt_vctr;
+	std::vector<sf::Text> root_fs_txt_vctr;
 
 	while (window.isOpen()) {
 
@@ -160,105 +167,75 @@ int main() {
 		while (window.pollEvent(event)) {
 
 			if (event.type == sf::Event::Closed) {
-
 				window.close();
 				sqlite3_close(db);
-
 			}
 
 			if(event.type == sf::Event::MouseMoved) {
-				for(auto & path_text : current_path_text) {
-					if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						path_text.setOutlineThickness(1);
-					} else if(path_text.getOutlineThickness() == 1) {
-						path_text.setOutlineThickness(0);
-					}
-				}
-				for(auto & file_text : available_files_text) {
-					if(file_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						file_text.setOutlineThickness(1);
-					} else if(file_text.getOutlineThickness() == 1) {
-						file_text.setOutlineThickness(0);
-					}
-				}
-				for(auto & drive_text : available_drives_text) {
-					if(drive_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						drive_text.setOutlineThickness(1);
-					} else if(drive_text.getOutlineThickness() == 1) {
-						drive_text.setOutlineThickness(0);
-					}
-				}
-				for(auto & path_text : virtual_path_text) {
-					if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						path_text.setOutlineThickness(1);
-					} else if(path_text.getOutlineThickness() == 1) {
-						path_text.setOutlineThickness(0);
-					}
-				}
-				for(auto & item_text : virtual_item_text) {
-					if(item_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-						item_text.setOutlineThickness(1);
-					} else if(item_text.getOutlineThickness() == 1) {
-						item_text.setOutlineThickness(0);
-					}
-				}
+				outlineOnHover(path_fs_txt_vctr, window);
+				outlineOnHover(item_fs_txt_vctr, window);
+				outlineOnHover(root_fs_txt_vctr, window);
+				outlineOnHover(path_md_txt_vctr, window);
+				outlineOnHover(item_md_txt_vctr, window);
 			}
 
 			if(event.type == sf::Event::MouseButtonPressed) {
 				if(event.mouseButton.button == sf::Mouse::Left) {
-					context_menu = 0;
-					for(auto & path_text : current_path_text) {
-						if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
 
-							if(current_path_text.back().getString() == current_path.root_name().string()) {
+					context_menu = 0;
+
+					for(auto & path_fs_seg_txt : path_fs_txt_vctr) {
+						if(hovered(path_fs_seg_txt, window)) {
+
+							if(path_fs_txt_vctr.back().getString() == current_path_fs.root_name().string()) {
 								for(int i = 0; i < 26; i++) {
 									std::string drive_letter = "";
 									drive_letter += char('A' + i);
 									drive_letter += ":";
 									if( fs::exists(fs::path(drive_letter)) ) {
-										available_drives_text.emplace_back(drive_letter, font, 16);
-										available_drives_text.back().setPosition(0, 24*available_drives_text.size());
-										available_drives_text.back().setOutlineColor(sf::Color::Blue);
+										root_fs_txt_vctr.emplace_back(drive_letter, font, 16);
+										root_fs_txt_vctr.back().setPosition(0, 24*root_fs_txt_vctr.size());
+										root_fs_txt_vctr.back().setOutlineColor(sf::Color::Blue);
 									}
 								}
-								available_files_text.clear();
+								item_fs_txt_vctr.clear();
 								break;
 							}
 
-							while(current_path_text.back().getString() != path_text.getString()) {
-								current_path.remove_filename();
-								current_path_text.pop_back();
+							while(path_fs_txt_vctr.back().getString() != path_fs_seg_txt.getString()) {
+								current_path_fs.remove_filename();
+								path_fs_txt_vctr.pop_back();
 							}
 							path_updated = true;
 
 						}
 					}
-					for(auto & file_text : available_files_text) {
-						if(file_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-							current_path /= fs::path(std::string(file_text.getString()));
+					for(auto & item_fs_txt : item_fs_txt_vctr) {
+						if(hovered(item_fs_txt, window)) {
+							current_path_fs /= fs::path(std::string(item_fs_txt.getString()));
 							path_updated = true;
 						}
 					}
-					for(auto & drive_text : available_drives_text) {
-						if(drive_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-							current_path = fs::path(std::string(drive_text.getString()) + "/");
-							available_drives_text.clear();
+					for(auto & root_fs_txt : root_fs_txt_vctr) {
+						if(hovered(root_fs_txt, window)) {
+							current_path_fs = fs::path(std::string(root_fs_txt.getString()) + "/");
+							root_fs_txt_vctr.clear();
 							path_updated = true;
 						}
 					}
-					for(auto & path_text : virtual_path_text) {
-						if(path_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-							while(virtual_path_text.back().getString() != path_text.getString()) {
-								current_item = current_item->getParent();
-								virtual_path_text.pop_back();
+					for(auto & path_md_seg_txt : path_md_txt_vctr) {
+						if(hovered(path_md_seg_txt, window)) {
+							while(path_md_txt_vctr.back().getString() != path_md_seg_txt.getString()) {
+								current_item_md = current_item_md->getParent();
+								path_md_txt_vctr.pop_back();
 							}
 							path_updated = true;
 						}
 					}
-					for(auto & item_text : virtual_item_text) {
-						if(item_text.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
-							if(md::Container* current_container = dynamic_cast<md::Container*>(current_item)) {
-								current_item = current_container->at(int(item_text.getPosition().y) / 24 - 1);
+					for(auto & item_md_txt : item_md_txt_vctr) {
+						if(hovered(item_md_txt, window)) {
+							if(md::Container* current_container = dynamic_cast<md::Container*>(current_item_md)) {
+								current_item_md = current_container->at(int(item_md_txt.getPosition().y) / 24 - 1);
 							}
 							path_updated = true;
 						}
@@ -355,97 +332,82 @@ int main() {
 
 		if(output_format == 2 && path_updated) {
 
-			current_path_text.clear();
-			for (auto & current_path_element : current_path) {
-
-				if(current_path_element == "\\") continue;
-
-				if(current_path_text.empty()) {
-					current_path_text.emplace_back(current_path_element.string(), font, 16);
-					current_path_text.back().setPosition(sf::Vector2f(0, 0));
-				} else {
-					current_path_text.emplace_back("/" + current_path_element.string(), font, 16);
-					current_path_text.back().setPosition(current_path_text[current_path_text.size() - 2].findCharacterPos(-1));
-				}
-
-				current_path_text.back().setOutlineColor(sf::Color::Blue);
-
-			}
-
-			available_files_text.clear();
+			root_fs_txt_vctr.clear();
 			int dir_pos = 0;
-			for (auto & curr_file : fs::directory_iterator(current_path)) {
+			for (auto & current_item_fs : fs::directory_iterator(current_path_fs)) {
 
-				switch(curr_file.status().type()) {
+				switch(current_item_fs.status().type()) {
 					case fs::file_type::regular:
-						available_files_text.emplace_back(curr_file.path().filename().string(), font, 16);
-						available_files_text.back().setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
-						available_files_text.back().setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
+						item_fs_txt_vctr.emplace_back(current_item_fs.path().filename().string(), font, 16);
+						item_fs_txt_vctr.back().setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
+						item_fs_txt_vctr.back().setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
 						break;
 					case fs::file_type::directory:
-						available_files_text.emplace(available_files_text.begin()+dir_pos, curr_file.path().filename().string(), font, 16);
-						available_files_text[dir_pos].setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
-						available_files_text[dir_pos].setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
+						item_fs_txt_vctr.emplace(item_fs_txt_vctr.begin()+dir_pos, current_item_fs.path().filename().string(), font, 16);
+						item_fs_txt_vctr[dir_pos].setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
+						item_fs_txt_vctr[dir_pos].setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
 						dir_pos++;
 						break;
 					default:
-						available_files_text.emplace_back(curr_file.path().filename().string(), font, 16);
-						available_files_text.back().setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
-						available_files_text.back().setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
+						item_fs_txt_vctr.emplace_back(current_item_fs.path().filename().string(), font, 16);
+						item_fs_txt_vctr.back().setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
+						item_fs_txt_vctr.back().setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
 						break;
 				}
 
 			}
-			for (int i = 0; i < available_files_text.size(); i++) {
+			for (int i = 0; i < item_fs_txt_vctr.size(); i++) {
 
-				available_files_text[i].setPosition(0, 24 + 24*i);
+				item_fs_txt_vctr[i].setPosition(0, 24 + 24*i);
 
 			}
 
 			path_updated = false;
 
-		}
+		} else if(output_format == 3 && path_updated) {
 
-		if(output_format == 3 && path_updated) {
+			path_md_txt_vctr.clear();
 
-			virtual_path_text.clear();
-			md::MeteoroidObject* temp_curr_item = current_item;
-			while(temp_curr_item) {
-				virtual_path_text.emplace(virtual_path_text.begin(), "/" + temp_curr_item->name(), font, 16);
+			md::MeteorItem* path_md_seg = current_item_md;
+			while(path_md_seg) {
+
+				path_md_txt_vctr.emplace(path_md_txt_vctr.begin(), "/" + path_md_seg->name(), font, 16);
 				
-				if(temp_curr_item->getType() == md::Type::Folder) {
-					virtual_path_text[0].setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
-					virtual_path_text[0].setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
-				} else if(temp_curr_item->getType() == md::Type::Group) {
-					virtual_path_text[0].setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
-					virtual_path_text[0].setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
-				} else if(temp_curr_item->getType() == md::Type::File) {
-					virtual_path_text[0].setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
-					virtual_path_text[0].setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
+				if(path_md_seg->getType() == md::Type::Folder) {
+					path_md_txt_vctr[0].setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
+					path_md_txt_vctr[0].setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
+				} else if(path_md_seg->getType() == md::Type::Playlist) {
+					path_md_txt_vctr[0].setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
+					path_md_txt_vctr[0].setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
+				} else if(path_md_seg->getType() == md::Type::File) {
+					path_md_txt_vctr[0].setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
+					path_md_txt_vctr[0].setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
 				}
-				temp_curr_item = temp_curr_item->getParent();
+				path_md_seg = path_md_seg->getParent();
+
 			}
-			for(int i = 1; i < virtual_path_text.size(); i++) {
-				virtual_path_text[i].setPosition(virtual_path_text[i - 1].findCharacterPos(-1));
+
+			for(int i = 1; i < path_md_txt_vctr.size(); i++) {
+				path_md_txt_vctr[i].setPosition(path_md_txt_vctr[i - 1].findCharacterPos(-1));
 			}
 
 
-			virtual_item_text.clear();
-			if(md::Container* current_container = dynamic_cast<md::Container*>(current_item)) {
+			item_md_txt_vctr.clear();
+			if(md::Container* current_container = dynamic_cast<md::Container*>(current_item_md)) {
 				for (int i = 0; i < current_container->size(); i++) {
 
-					virtual_item_text.emplace_back(current_container->at(i)->name(), font, 16);
-					virtual_item_text.back().setPosition(sf::Vector2f(0, 24 + 24*i));
+					item_md_txt_vctr.emplace_back(current_container->at(i)->name(), font, 16);
+					item_md_txt_vctr.back().setPosition(sf::Vector2f(0, 24 + 24*i));
 
 					if(current_container->at(i)->getType() == md::Type::Folder) {
-						virtual_item_text.back().setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
-						virtual_item_text.back().setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
-					} else if(current_container->at(i)->getType() == md::Type::Group) {
-						virtual_item_text.back().setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
-						virtual_item_text.back().setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
+						item_md_txt_vctr.back().setFillColor(sf::Color(0xAA, 0xFF, 0xAA));
+						item_md_txt_vctr.back().setOutlineColor(sf::Color(0x00, 0xAA, 0x00));
+					} else if(current_container->at(i)->getType() == md::Type::Playlist) {
+						item_md_txt_vctr.back().setFillColor(sf::Color(0xAA, 0xAA, 0xFF));
+						item_md_txt_vctr.back().setOutlineColor(sf::Color(0x00, 0x00, 0xAA));
 					} else if(current_container->at(i)->getType() == md::Type::File) {
-						virtual_item_text.back().setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
-						virtual_item_text.back().setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
+						item_md_txt_vctr.back().setFillColor(sf::Color(0xFF, 0xAA, 0xAA));
+						item_md_txt_vctr.back().setOutlineColor(sf::Color(0xAA, 0x00, 0x00));
 					}
 
 				}
@@ -502,24 +464,24 @@ int main() {
 
 		} else if(output_format == 2) {
 
-			for (auto path_text : current_path_text) {
+			for (auto path_text : path_fs_txt_vctr) {
 				window.draw(path_text);
 			}
-			for (auto file_text : available_files_text) {
+			for (auto file_text : item_fs_txt_vctr) {
 				window.draw(file_text);
 			}
-			for (auto drive_text : available_drives_text) {
+			for (auto drive_text : root_fs_txt_vctr) {
 				window.draw(drive_text);
 			}
 
 
 		} else if(output_format == 3) {
 
-			for (auto path_text : virtual_path_text) {
+			for (auto path_text : path_md_txt_vctr) {
 				window.draw(path_text);
 			}
 
-			for (auto item_text : virtual_item_text) {
+			for (auto item_text : item_md_txt_vctr) {
 				window.draw(item_text);
 			}
 
@@ -554,7 +516,7 @@ int main() {
 				menu_item.emplace_back(sf::Vector2f(largest_width, 24));
 				menu_item.back().setPosition(sf::Vector2f(context_menu_pos.x, context_menu_pos.y + 24*i));
 				menu_item.back().setFillColor(sf::Color(0xC0, 0xC0, 0xC0));
-				if(menu_item.back().getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) {
+				if(hovered(menu_item.back(), window)) {
 					menu_item.back().setFillColor(sf::Color(0xA0, 0xA0, 0xFF));
 				}
 				menu_item.back().setOutlineColor(sf::Color(0x80, 0x80, 0x80));
@@ -577,4 +539,24 @@ int main() {
 
 	return 0;
 
+}
+
+bool hovered(sf::Text& txt, sf::RenderWindow& window) {
+	return (txt.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) ? true : false;
+}
+bool hovered(sf::Shape& shape, sf::RenderWindow& window) {
+	return (shape.getGlobalBounds().contains(window.mapPixelToCoords(sf::Mouse::getPosition(window)))) ? true : false;
+}
+
+void outlineOnHover(sf::Text& txt, sf::RenderWindow& window) {
+	if(hovered(txt, window)) {
+		txt.setOutlineThickness(1);
+	} else if(txt.getOutlineThickness() == 1) {
+		txt.setOutlineThickness(0);
+	}
+}
+void outlineOnHover(std::vector<sf::Text>& txt_vctr, sf::RenderWindow& window) {
+	for(auto & txt : txt_vctr) {
+		outlineOnHover(txt, window);
+	}
 }

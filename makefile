@@ -26,19 +26,17 @@ freetype.lib \
 sfml-graphics-s.lib
 
 INCLUDES = $(SP)\main.cpp \
-$(SP)\md\MeteoroidObject.cpp \
+$(SP)\md\MeteorItem.cpp \
 $(SP)\md\Container.cpp \
-$(SP)\md\Executable.cpp \
 $(SP)\md\Folder.cpp \
-$(SP)\md\Group.cpp \
+$(SP)\md\Playlist.cpp \
 $(SP)\md\File.cpp
 
 HEADERS = \
-$(HP)\md\MeteoroidObject.hpp \
+$(HP)\md\MeteorItem.hpp \
 $(HP)\md\Container.hpp \
-$(HP)\md\Executable.hpp \
 $(HP)\md\Folder.hpp \
-$(HP)\md\Group.hpp \
+$(HP)\md\Playlist.hpp \
 $(HP)\md\File.hpp
 
 .\bin\Meteoroid.exe: makefile \

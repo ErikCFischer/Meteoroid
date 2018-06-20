@@ -1,27 +1,37 @@
 #pragma once
 
-#include <md/MeteoroidObject.hpp>
+#include <md/MeteorItem.hpp>
 
 namespace md {
+
 	//This is the abstract object for any kind of container object (Folder, Group)
-	class Container: virtual public md::MeteoroidObject {
+	class Container: public md::MeteorItem {
 		protected:
 			//Vector containing all children
-			std::vector<md::MeteoroidObject*> child_vctr;
+			std::vector<md::MeteorItem*> child_vctr;
+
 		public:
 			//Only Containers can contain
 			Container();
 			Container(std::string);
 			Container(std::string, md::Container*);
+			virtual ~Container();
 
-			//This is just a quick way to add an object to the container
-			virtual int add(md::MeteoroidObject*) = 0;
+			virtual int setParent(md::Container*) override;
 
-			//This is how to access any child object
-			virtual md::MeteoroidObject* at(int );
+			virtual int add(md::MeteorItem*);
 
-			virtual size_t size();
+			md::MeteorItem* at(int);
+
+			virtual int remove(int);
+
+			md::Type getParentType() override;
+
+			uint8_t getParentTypeVal() override;
+
+			size_t size();
 
 
 	};
+
 }

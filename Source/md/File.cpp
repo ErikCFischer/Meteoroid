@@ -1,40 +1,55 @@
 #include <md/File.hpp>
 
 namespace md {
+
 	File::File() {
-
+		this->type = md::Type::File;
 	}
-	File::File(std::string set_name) : Executable(set_name), MeteoroidObject(set_name) {
-
+	File::File(std::string set_name) : MeteorItem(set_name) {
+		this->type = md::Type::File;
 	}
-	File::File(std::string set_name, fs::path set_path) : Executable(set_name), MeteoroidObject(set_name), file_path(set_path) {
-
+	File::File(std::string set_name, fs::path set_path) : MeteorItem(set_name), file_path(set_path) {
+		this->type = md::Type::File;
 	}
-	File::File(std::string set_name, md::Container* set_parent) : Executable(set_name, set_parent), MeteoroidObject(set_name, set_parent) {
-		set_parent->add(this);
+	File::File(std::string set_name, md::Container* set_parent) : MeteorItem(set_name) {
+		this->type = md::Type::File;
+		this->setParent(set_parent);
 	}
-	File::File(std::string set_name, fs::path set_path, md::Container* set_parent) : Executable(set_name, set_parent), MeteoroidObject(set_name, set_parent), file_path(set_path) {
-		set_parent->add(this);
+	File::File(std::string set_name, fs::path set_path, md::Container* set_parent) : MeteorItem(set_name), file_path(set_path) {
+		this->type = md::Type::File;
+		this->setParent(set_parent);
 	}
-
-	md::Type File::getType() {
-		return md::Type::File;
-	}
-
-	int File::setFilePath(fs::path set_file_path) {
-		file_path = set_file_path;
-		return 1;
+	File::~File() {
+		std::cout << "Destroying File: " << this->name() << std::endl;
 	}
 
-	int File::setParent(md::MeteoroidObject* set_parent) {
-		if(set_parent->getType() == md::Type::Folder || set_parent->getType() == md::Type::Group) {
+	int File::setParent(md::Container* set_parent) {
+		if(this->parent_ptr == nullptr) {
 			this->parent_ptr = set_parent;
+			set_parent->add(this);
 			return 1;
+		} return 0;
+	}
+
+	md::Type File::getParentType() {
+		if(this->parent_ptr == nullptr) {
+			return md::Type::DNE;
+		} else {
+			return this->parent_ptr->getType();
 		}
-		return 0;
+	}
+
+	uint8_t File::getParentTypeVal() {
+		return static_cast<uint8_t>(this->getParentType());
+	}
+
+	int File::setFilePath(fs::path set_path) {
+		this->file_path = set_path;
+		return 1;
 	}
 
 	void File::run() {
 
 	}
+
 }
