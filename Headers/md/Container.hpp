@@ -14,12 +14,11 @@ namespace md {
 			//Only Containers can contain
 			Container();
 			Container(std::string);
-			Container(std::string, md::Container*);
 			virtual ~Container();
 
 			virtual int setParent(md::Container*) override;
 
-			virtual int add(md::MeteorItem*);
+			virtual md::MeteorItem* add(md::MeteorItem*);
 
 			md::MeteorItem* at(int);
 

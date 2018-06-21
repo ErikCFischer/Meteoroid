@@ -11,14 +11,6 @@ namespace md {
 	File::File(std::string set_name, fs::path set_path) : MeteorItem(set_name), file_path(set_path) {
 		this->type = md::Type::File;
 	}
-	File::File(std::string set_name, md::Container* set_parent) : MeteorItem(set_name) {
-		this->type = md::Type::File;
-		this->setParent(set_parent);
-	}
-	File::File(std::string set_name, fs::path set_path, md::Container* set_parent) : MeteorItem(set_name), file_path(set_path) {
-		this->type = md::Type::File;
-		this->setParent(set_parent);
-	}
 	File::~File() {
 		std::cout << "Destroying File: " << this->name() << std::endl;
 	}

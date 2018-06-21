@@ -8,9 +8,6 @@ namespace md {
 	Folder::Folder(std::string set_name) : Container(set_name) {
 		this->type = md::Type::Folder;
 	}
-	Folder::Folder(std::string set_name, md::Folder* set_parent) : Container(set_name, set_parent) {
-		this->type = md::Type::Folder;
-	}
 	Folder::~Folder() {
 		std::cout << "Destroying Folder: " << this->name() << std::endl;
 	}
@@ -25,7 +22,7 @@ namespace md {
 	}
 
 	//Folder can contain any kind of Object
-	int Folder::add(md::MeteorItem* add_item) {
+	md::MeteorItem* Folder::add(md::MeteorItem* add_item) {
 		if(add_item->getParent() == nullptr) {
 			switch(add_item->getType()) {
 				case md::Type::Folder:
@@ -33,14 +30,14 @@ namespace md {
 				case md::Type::File:
 					this->child_vctr.push_back(add_item);
 					add_item->setParent(this);
-					return 1;
+					return add_item;
 				default:
-					return 0;
+					return nullptr;
 			}
 		} else if(add_item->getParent() == this) {
-			if(this->size() && this->child_vctr.back() == add_item) return 0;
+			if(this->size() && this->child_vctr.back() == add_item) return nullptr;
 			this->child_vctr.push_back(add_item);
-			return 1;
-		} return 0;
+			return add_item;
+		} return nullptr;
 	}
 }

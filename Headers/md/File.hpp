@@ -17,8 +17,6 @@ namespace md {
 			File();
 			File(std::string);
 			File(std::string, fs::path);
-			File(std::string, md::Container*);
-			File(std::string, fs::path, md::Container*);
 			virtual ~File();
 
 			int setParent(md::Container*) override;

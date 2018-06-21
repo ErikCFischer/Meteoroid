@@ -8,12 +8,11 @@ namespace md {
 		public:
 			Folder();
 			Folder(std::string);
-			Folder(std::string, md::Folder*);
 			virtual ~Folder();
 
 			int setParent(md::Container*) override;
 
-			int add(md::MeteorItem*) override;
+			md::MeteorItem* add(md::MeteorItem*) override;
 
 
 	};
