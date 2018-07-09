@@ -26,7 +26,7 @@ freetype.lib \
 sfml-graphics-s.lib
 
 INCLUDES = $(SP)\main.cpp \
-$(SP)\WindowThread.cpp \
+$(SP)\EventThread.cpp \
 $(SP)\md\MeteorItem.cpp \
 $(SP)\md\Container.cpp \
 $(SP)\md\Folder.cpp \
@@ -34,7 +34,7 @@ $(SP)\md\Playlist.cpp \
 $(SP)\md\File.cpp
 
 HEADERS = \
-$(HP)\WindowThread.hpp \
+$(HP)\EventThread.hpp \
 $(HP)\md\MeteorItem.hpp \
 $(HP)\md\Container.hpp \
 $(HP)\md\Folder.hpp \

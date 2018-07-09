@@ -19,19 +19,10 @@
 #include <md/Playlist.hpp>
 #include <md/File.hpp>
 
-#include <WindowThread.hpp>
+#include <EventThread.hpp>
 
 
-/* Mechina Albums In Order
- * 
- * The Assembly of Tyrants
- * Conqueror
- * Empyrean
- * Xenon
- * Acheron
- * Progenitor
- * As Embers Turn to Dust
- */
+#define dbp(x) std::cout << x << std::endl;
 
 
 //File system library
@@ -57,9 +48,13 @@ static int callback(void* table_output, int col_count, char** col_data, char** c
 
 	std::vector<std::string> row_data;
 	for(int col = 0; col < col_count; col++) {
-		row_data.push_back(col_data[col]);
-		if((*out).max_column_width[col] < strlen(col_data[col])) {
-			(*out).max_column_width[col] = strlen(col_data[col]);
+		if(!col_data[col])
+			row_data.push_back("NULL");
+		else
+			row_data.push_back(col_data[col]);
+
+		if((*out).max_column_width[col] < strlen(row_data.back().c_str())) {
+			(*out).max_column_width[col] = strlen(row_data.back().c_str());
 		}
 	}
 	(*out).column_data.push_back(row_data);
@@ -67,6 +62,8 @@ static int callback(void* table_output, int col_count, char** col_data, char** c
 	return 0;
 
 }
+
+void loadMDFromDB(sqlite3*, md::MeteorItem*, int);
 
 bool hovered(sf::Text&, sf::RenderWindow&);
 bool hovered(sf::Shape&, sf::RenderWindow&);
@@ -79,7 +76,7 @@ int main() {
 
 	sf::RenderWindow window(sf::VideoMode(1280, 720), "Meteoroid");
 	sf::View total_window_view(sf::FloatRect(0, 0, window.getSize().x, window.getSize().y));
-
+	
 	sf::RenderTexture render_md;
 	render_md.create(window.getSize().x, window.getSize().y);
 	sf::View view_md(sf::FloatRect(0, 0, window.getSize().x/2, window.getSize().y));
@@ -95,7 +92,7 @@ int main() {
 	sf::Font font;
 
 	if(!font.loadFromFile("Assets/crystal.ttf")) {
-		std::cout << "Error loading font" << std::endl;
+		dbp("Error loading font");
 	}
 
 	sf::Color folder_fill_c(0xA0, 0xA0, 0xF0);
@@ -106,39 +103,6 @@ int main() {
 
 	sf::Color file_fill_c(0xF0, 0xA0, 0xA0);
 	sf::Color file_outline_c(0x60, 0x40, 0x40);
-
-	md::MeteorItem* current_item_md = new md::Folder("/");
-		current_item_md = static_cast<md::Container*>(current_item_md)->add(new md::Folder("Media"));
-			current_item_md = static_cast<md::Container*>(current_item_md)->add(new md::Folder("TV"));
-				current_item_md = static_cast<md::Container*>(current_item_md)->add(new md::Playlist("Metalocalypse"));
-					for(int s = 0; s < 4; s++) {
-						std::string sn_name = "Season 1";
-						sn_name[7] += s;
-						current_item_md = static_cast<md::Container*>(current_item_md)->add(new md::Playlist(sn_name));
-						for(int e = 0; e < 9; e++) {
-							std::string ep_name = "Episode 1";
-							ep_name[8] += e;
-							static_cast<md::Container*>(current_item_md)->add(new md::File(ep_name));
-						}
-						current_item_md = current_item_md->getParent();
-					}
-			current_item_md = current_item_md->getParent();
-		current_item_md = current_item_md->getParent();
-			current_item_md = static_cast<md::Container*>(current_item_md)->add(new md::Folder("Movies"));
-				current_item_md = static_cast<md::Container*>(current_item_md)->add(new md::Playlist("Blade"));
-					static_cast<md::Container*>(current_item_md)->add(new md::File("Blade 1"));
-					static_cast<md::Container*>(current_item_md)->add(new md::File("Blade 2"));
-					static_cast<md::Container*>(current_item_md)->add(new md::File("Blade 3"));
-			current_item_md = current_item_md->getParent();
-				static_cast<md::Container*>(current_item_md)->add(new md::File("Django"));
-				static_cast<md::Container*>(current_item_md)->add(new md::File("Planet Terror"));
-		current_item_md = current_item_md->getParent();
-			static_cast<md::Container*>(current_item_md)->add(new md::Folder("Anime"));
-	current_item_md = current_item_md->getParent();
-		static_cast<md::Container*>(current_item_md)->add(new md::Folder("Games"));
-
-	std::vector<sf::Text> path_md_txt_vctr;
-	std::vector<sf::Text> item_md_txt_vctr;
 
 	std::string user_str = "";
 	sf::Text user_text(user_str, font, 16);
@@ -176,20 +140,81 @@ int main() {
 
 	sql_status = sqlite3_open("test.db", &db);
 
-	if( sql_status ) {
+	if( sql_status != SQLITE_OK ) {
 
-		printf("Can't open database: %s\n", sqlite3_errmsg(db));
+		dbp("Can't open database: " << sqlite3_errmsg(db));
 		return 1;
 
 	} else {
 
-		printf("Opened database successfully\n");
+		dbp("Opened database successfully");
 
 	}
 
+	char* sql_statement;
+	//sql_statement = "CREATE TABLE md_item(ID INT NOT NULL, name TEXT NOT NULL, parent_ID INT, type CHAR(8));";
+	/*
+	sql_statement = "INSERT INTO md_item VALUES(0, '/', NULL, 'Folder');" \
+					"INSERT INTO md_item VALUES(1, 'Media', 0, 'Folder');" \
+					"INSERT INTO md_item VALUES(2, 'TV', 1, 'Folder');" \
+					"INSERT INTO md_item VALUES(3, 'Metalocalypse', 2, 'Playlist');" \
+					"INSERT INTO md_item VALUES(4, 'Season 1', 3, 'Playlist');" \
+					"INSERT INTO md_item VALUES(5, 'Episode 1', 4, 'File');" \
+					"INSERT INTO md_item VALUES(6, 'Episode 2', 4, 'File');" \
+					"INSERT INTO md_item VALUES(7, 'Episode 3', 4, 'File');" \
+					"INSERT INTO md_item VALUES(8, 'Episode 4', 4, 'File');" \
+					"INSERT INTO md_item VALUES(9, 'Episode 5', 4, 'File');" \
+					"INSERT INTO md_item VALUES(10, 'Episode 6', 4, 'File');" \
+					"INSERT INTO md_item VALUES(11, 'Episode 7', 4, 'File');" \
+					"INSERT INTO md_item VALUES(12, 'Episode 8', 4, 'File');" \
+					"INSERT INTO md_item VALUES(13, 'Season 2', 3, 'Playlist');" \
+					"INSERT INTO md_item VALUES(14, 'Episode 1', 13, 'File');" \
+					"INSERT INTO md_item VALUES(15, 'Episode 2', 13, 'File');" \
+					"INSERT INTO md_item VALUES(16, 'Episode 3', 13, 'File');" \
+					"INSERT INTO md_item VALUES(17, 'Episode 4', 13, 'File');" \
+					"INSERT INTO md_item VALUES(18, 'Episode 5', 13, 'File');" \
+					"INSERT INTO md_item VALUES(19, 'Episode 6', 13, 'File');" \
+					"INSERT INTO md_item VALUES(20, 'Episode 7', 13, 'File');" \
+					"INSERT INTO md_item VALUES(21, 'Episode 8', 13, 'File');" \
+					"INSERT INTO md_item VALUES(22, 'Movies', 1, 'Folder');" \
+					"INSERT INTO md_item VALUES(23, 'Blade', 22, 'Playlist');" \
+					"INSERT INTO md_item VALUES(24, 'Blade 1', 23, 'File');" \
+					"INSERT INTO md_item VALUES(25, 'Blade 2', 23, 'File');" \
+					"INSERT INTO md_item VALUES(26, 'Blade 3', 23, 'File');" \
+					"INSERT INTO md_item VALUES(27, 'Django', 22, 'File');" \
+					"INSERT INTO md_item VALUES(28, 'Planet Terror', 22, 'File');" \
+					"INSERT INTO md_item VALUES(29, 'Anime', 1, 'Folder');" \
+					"INSERT INTO md_item VALUES(30, 'Games', 0, 'Folder');";
+	*/
+
+	sql_statement = "SELECT * FROM md_item WHERE ID = 0;";
+
+	sql_table_s md_table;
+
+	/* Execute SQL statement */
+	sql_status = sqlite3_exec(db, sql_statement, callback, &md_table, &sql_err);
+
+	if( sql_status != SQLITE_OK ){
+		dbp("SQL error: " << sql_err);
+		sqlite3_free(sql_err);
+	} else {
+		dbp("Loaded Virtual Root");
+	}
+
+	md::MeteorItem* current_item_md = new md::Folder(md_table.column_data[0][1]);
+
+	loadMDFromDB(db, current_item_md, 0);
+
+	dbp("MD Fully Loaded");
+
+	std::vector<sf::Text> path_md_txt_vctr;
+	std::vector<sf::Text> item_md_txt_vctr;
+
 	std::mutex mute;
 	std::condition_variable cv;
-	bool kill_new_thread = false;
+	thread_info_s thread_info = {false, "", sf::Vector2i(0,0)};
+
+	std::thread new_event_thread(eventThread, std::ref(thread_info), std::ref(mute), std::ref(cv));
 
 	while (window.isOpen()) {
 
@@ -210,20 +235,15 @@ int main() {
 
 			if(event.type == sf::Event::KeyReleased) {
 				if(event.key.code == sf::Keyboard::BackSpace) {
-
-					std::thread new_win_thread(windowThread, std::ref(kill_new_thread), std::ref(mute), std::ref(cv));
-					new_win_thread.detach();
-
+					cv.notify_all();
 				}
 			}
 
 			if (event.type == sf::Event::Closed || sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
-				kill_new_thread = true;
-
+				
 				std::unique_lock<std::mutex> lck(mute);
-				while(kill_new_thread) {
-					cv.wait(lck);
-				}
+				thread_info.kill = true;
+				cv.notify_all();
 
 				window.close();
 				sqlite3_close(db);
@@ -644,7 +664,7 @@ int main() {
 
 		}
 		if(output_format == 3 || output_format == 4) {
-
+			
 			for (auto path_text : path_md_txt_vctr) {
 				render_md.draw(path_text);
 			}
@@ -654,7 +674,8 @@ int main() {
 			}
 
 			render_md.display();
-			const sf::Texture& texture_md = render_md.getTexture();
+
+			sf::Texture texture_md = render_md.getTexture();
 			sf::Sprite sprite_md(texture_md);
 			window.setView(view_md);
 			window.draw(sprite_md);
@@ -710,7 +731,38 @@ int main() {
 
 	}
 
+	new_event_thread.join();
+
 	return 0;
+
+}
+
+void loadMDFromDB(sqlite3* db, md::MeteorItem* md, int id) {
+
+	std::string sql_statement = "SELECT * FROM md_item WHERE parent_ID = " + std::to_string(id) + ";";
+	sql_table_s md_table;
+	char* unused;
+	sqlite3_exec(db, sql_statement.c_str(), callback, &md_table, &unused);
+
+	for(int row = 0; row < md_table.column_data.size(); row++) {
+		if(md_table.column_data[row][3] == "Folder") {
+
+			loadMDFromDB(db,
+						static_cast<md::Container*>(md)->add(new md::Folder(md_table.column_data[row][1])),
+						std::stoi(md_table.column_data[row][0]));
+
+		} else if(md_table.column_data[row][3] == "Playlist") {
+
+			loadMDFromDB(db,
+						static_cast<md::Container*>(md)->add(new md::Playlist(md_table.column_data[row][1])),
+						std::stoi(md_table.column_data[row][0]));
+
+		} else if(md_table.column_data[row][3] == "File") {
+
+			static_cast<md::Container*>(md)->add(new md::File(md_table.column_data[row][1]));
+
+		}
+	}
 
 }
 
