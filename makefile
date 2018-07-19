@@ -26,21 +26,23 @@ freetype.lib \
 sfml-graphics-s.lib
 
 INCLUDES = $(SP)\main.cpp \
-$(SP)\EventThread.cpp \
-$(SP)\md\MeteorItem.cpp \
-$(SP)\md\Container.cpp \
-$(SP)\md\Folder.cpp \
-$(SP)\md\Playlist.cpp \
-$(SP)\md\File.cpp
+$(SP)\Screens\VirtualSystemScreen.cpp \
+$(SP)\Screens\FileSystemScreen.cpp \
+$(SP)\MD\MeteorItem.cpp \
+$(SP)\MD\Container.cpp \
+$(SP)\MD\Folder.cpp \
+$(SP)\MD\Playlist.cpp \
+$(SP)\MD\File.cpp
 
 HEADERS = \
-$(HP)\EventThread.hpp \
-$(HP)\md\MeteorItem.hpp \
-$(HP)\md\Container.hpp \
-$(HP)\md\Folder.hpp \
-$(HP)\md\Playlist.hpp \
-$(HP)\md\File.hpp
+$(HP)\Screens\VirtualSystemScreen.hpp \
+$(HP)\Screens\FileSystemScreen.hpp \
+$(HP)\MD\MeteorItem.hpp \
+$(HP)\MD\Container.hpp \
+$(HP)\MD\Folder.hpp \
+$(HP)\MD\Playlist.hpp \
+$(HP)\MD\File.hpp
 
 .\bin\Meteoroid.exe: makefile \
 $(INCLUDES) $(HEADERS)
-	cl /EHsc /MT /Fo.\obj\ /DSFML_STATIC $(INCLUDE_PATH) $(INCLUDES) /link $(LIB_PATH) $(LIBS) /out:bin\Meteoroid.exe
+	cl /EHsc /MT /Fo.\obj\ /DSFML_STATIC /DDEBUG $(INCLUDE_PATH) $(INCLUDES) /link $(LIB_PATH) $(LIBS) /out:bin\Meteoroid.exe

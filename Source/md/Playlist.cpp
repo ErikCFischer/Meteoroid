@@ -1,4 +1,4 @@
-#include <md/Playlist.hpp>
+#include <MD/Playlist.hpp>
 
 namespace md {
 
